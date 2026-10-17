@@ -1,0 +1,116 @@
+<!doctype html><html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>聚焦小组件安装</title><style>body{font-family:-apple-system,sans-serif;margin:16px;line-height:1.6;color:#111}@media(prefers-color-scheme:dark){body{background:#111;color:#eee}pre{background:#222!important}}
+button{font-size:17px;padding:12px 20px;border:0;border-radius:10px;background:#22c55e;color:#fff;width:100%}pre{background:#f3f4f6;padding:10px;border-radius:8px;overflow:auto;font-size:11px;max-height:50vh}</style></head><body>
+<h2>「聚焦」四象限小组件</h2><ol>
+<li>App Store 安装免费的 <b>Scriptable</b>。</li>
+<li>点下方「复制脚本」。</li>
+<li>打开 Scriptable，右上角 <b>＋</b>，粘贴，左上角把名字改成「聚焦」，点「完成」。</li>
+<li>回到主屏幕长按空白处 → 左上角「＋」→ 搜 Scriptable → 选中号或大号（小号只看今天接下来的日程）→ 添加。</li>
+<li>长按小组件 →「编辑小组件」→ Script 选「聚焦」。点小组件可打开看板。</li></ol>
+<button id="b">复制脚本</button><p id="m"></p><pre id="c">// Variables used by Scriptable.
+// icon-color: deep-gray; icon-glyph: th-large;
+// 「聚焦」四象限小组件 — 数据来自日程看板
+const BASE = &quot;https://zhenjisuozao.github.io/cal/653744dd8e57200a0666cdc5/&quot;;
+const DATA_URL = BASE + &quot;data.json&quot;;
+const CACHE_KEY = &quot;focus_widget_cache_v1&quot;;
+const Q = {
+  1: { name: &quot;重要且紧急&quot;, color: &quot;#ef4444&quot; },
+  2: { name: &quot;重要不紧急&quot;, color: &quot;#22c55e&quot; },
+  3: { name: &quot;紧急不重要&quot;, color: &quot;#eab308&quot; },
+  4: { name: &quot;不重要不紧急&quot;, color: &quot;#9ca3af&quot; },
+};
+const fg = Color.dynamic(new Color(&quot;#111827&quot;), new Color(&quot;#f3f4f6&quot;));
+const sub = Color.dynamic(new Color(&quot;#6b7280&quot;), new Color(&quot;#9ca3af&quot;));
+const bg = Color.dynamic(new Color(&quot;#ffffff&quot;), new Color(&quot;#111111&quot;));
+
+function bj(d) { // 北京时间各字段
+  const t = new Date(d.getTime() + 8 * 3600e3);
+  const p = n =&gt; String(n).padStart(2, &quot;0&quot;);
+  return { date: `${t.getUTCFullYear()}-${p(t.getUTCMonth() + 1)}-${p(t.getUTCDate())}`, hm: `${p(t.getUTCHours())}:${p(t.getUTCMinutes())}` };
+}
+async function load() {
+  let data = null, offline = false;
+  try {
+    const r = new Request(DATA_URL + &quot;?t=&quot; + Date.now());
+    r.timeoutInterval = 10;
+    data = await r.loadJSON();
+    if (!data || !Array.isArray(data.tasks)) throw new Error(&quot;bad&quot;);
+    Keychain.set(CACHE_KEY, JSON.stringify(data));
+  } catch (e) {
+    offline = true;
+    if (Keychain.contains(CACHE_KEY)) data = JSON.parse(Keychain.get(CACHE_KEY));
+    else data = { tasks: [] };
+  }
+  return { data, offline };
+}
+function trunc(s, n) { return s.length &gt; n ? s.slice(0, n - 1) + &quot;…&quot; : s; }
+function fmt(t, today) {
+  let pre = &quot;&quot;;
+  if (t.date &amp;&amp; t.date !== today) pre = t.date.slice(5).replace(&quot;-&quot;, &quot;/&quot;) + &quot; &quot;;
+  return pre + (t.time ? t.time + &quot; &quot; : &quot;&quot;) + t.title;
+}
+
+async function main() {
+  const { data, offline } = await load();
+  const now = bj(new Date());
+  const today = now.date;
+  const tasks = (data.tasks || []).filter(t =&gt; !t.done &amp;&amp; (!t.date || t.date &gt;= today))
+    .sort((a, b) =&gt; ((a.date || &quot;9999&quot;) + (a.time || &quot;99&quot;)).localeCompare((b.date || &quot;9999&quot;) + (b.time || &quot;99&quot;)));
+  const fam = config.widgetFamily || &quot;medium&quot;;
+  const w = new ListWidget();
+  w.backgroundColor = bg;
+  w.url = BASE;
+  w.refreshAfterDate = new Date(Date.now() + 15 * 60e3);
+  w.setPadding(10, 10, 10, 10);
+
+  const head = w.addText(`聚焦 · 更新 ${now.hm}${offline ? &quot; · 离线&quot; : &quot;&quot;}`);
+  head.font = Font.mediumSystemFont(10); head.textColor = sub;
+  w.addSpacer(4);
+
+  if (fam === &quot;small&quot;) {
+    const up = tasks.filter(t =&gt; t.date === today &amp;&amp; (!t.time || t.time &gt;= now.hm)).slice(0, 3);
+    const tt = w.addText(&quot;今天接下来&quot;); tt.font = Font.boldSystemFont(13); tt.textColor = fg;
+    w.addSpacer(4);
+    if (!up.length) { const e = w.addText(&quot;今天没有更多日程&quot;); e.font = Font.systemFont(12); e.textColor = sub; }
+    for (const t of up) {
+      const row = w.addStack(); row.centerAlignContent();
+      const bar = row.addStack(); bar.size = new Size(3, 26); bar.backgroundColor = new Color(Q[t.q || 4].color); bar.cornerRadius = 1.5;
+      row.addSpacer(5);
+      const col = row.addStack(); col.layoutVertically();
+      const a = col.addText(t.time || &quot;全天&quot;); a.font = Font.semiboldSystemFont(11); a.textColor = new Color(Q[t.q || 4].color);
+      const b = col.addText(trunc(t.title, 14)); b.font = Font.systemFont(11); b.textColor = fg; b.lineLimit = 1;
+      w.addSpacer(4);
+    }
+    w.addSpacer();
+  } else {
+    const max = fam === &quot;large&quot; ? 6 : 2;
+    const tl = fam === &quot;large&quot; ? 20 : 14;
+    const grid = w.addStack(); grid.layoutVertically();
+    for (const pair of [[1, 2], [3, 4]]) {
+      const r = grid.addStack();
+      for (const q of pair) {
+        const c = r.addStack(); c.layoutVertically();
+        c.size = new Size(0, 0);
+        c.backgroundColor = new Color(Q[q].color, 0.14); c.cornerRadius = 8; c.setPadding(5, 6, 5, 6);
+        const h = c.addText(Q[q].name); h.font = Font.boldSystemFont(10); h.textColor = new Color(Q[q].color);
+        const list = tasks.filter(t =&gt; (t.q || 4) === q);
+        if (!list.length) { const e = c.addText(&quot;—&quot;); e.font = Font.systemFont(10); e.textColor = sub; }
+        for (const t of list.slice(0, max)) {
+          const x = c.addText(trunc(fmt(t, today), tl)); x.font = Font.systemFont(10); x.textColor = fg; x.lineLimit = 1;
+        }
+        if (list.length &gt; max) { const m = c.addText(`+${list.length - max}`); m.font = Font.mediumSystemFont(10); m.textColor = sub; }
+        c.addSpacer();
+        r.addSpacer(q % 2 ? 6 : 0);
+      }
+      grid.addSpacer(6);
+    }
+  }
+  if (config.runsInWidget) Script.setWidget(w);
+  else if (fam === &quot;small&quot;) await w.presentSmall();
+  else if (fam === &quot;large&quot;) await w.presentLarge();
+  else await w.presentMedium();
+  Script.complete();
+}
+await main();
+</pre>
+<script>b.onclick=async()=>{const t=c.textContent;try{await navigator.clipboard.writeText(t)}catch(e){const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();document.execCommand('copy');a.remove()}m.textContent='已复制 ✓ 去 Scriptable 粘贴'}</script></body></html>
