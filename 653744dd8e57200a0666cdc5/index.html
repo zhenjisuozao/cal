@@ -71,16 +71,16 @@ input,textarea,select{width:100%;font:inherit;padding:10px;border:1px solid var(
 .mh .tb{border:1px solid var(--line);background:var(--card);color:var(--pri);border-radius:999px;padding:4px 12px;font-size:13px}
 .mwd{display:grid;grid-template-columns:repeat(7,1fr);font-size:11px;color:var(--sub);text-align:center;padding-bottom:4px;border-bottom:1px solid var(--line)}
 .mg{display:grid;grid-template-columns:repeat(7,1fr)}
-.mc{min-height:76px;border-bottom:1px solid var(--line);padding:3px 2px;overflow:hidden;cursor:pointer;min-width:0}
+.mc{min-height:84px;border-bottom:1px solid var(--line);padding:4px 2px 3px;overflow:hidden;cursor:pointer;min-width:0}
 .mc.out{opacity:.35}.mc.sel{background:rgba(37,99,235,.08);border-radius:6px}
-.mc .dn{display:flex;flex-direction:column;align-items:center;line-height:1.1}
+.mc .dn{display:flex;flex-direction:column;align-items:center;line-height:1.1;margin-bottom:1px}
 .mc .dn b{font-size:14px;font-weight:500;width:24px;height:24px;display:grid;place-items:center;border-radius:50%}
 .mc.td .dn b{background:var(--now);color:#fff;font-weight:700}
 .mc .dn s{text-decoration:none;font-size:9px;color:var(--sub);white-space:nowrap;min-height:11px}.mc .dn s.hol{color:var(--q1);font-weight:600}.mc .dn s.wrk{color:var(--pri);font-weight:600}
 .mc.we .dn b{color:var(--sub)}.mc.td.we .dn b{color:#fff}
-.ch{display:flex;align-items:center;gap:2px;font-size:9.5px;line-height:13px;margin-top:2px;white-space:nowrap;overflow:hidden;border-radius:3px;padding-right:1px}
-.ch i{flex:none;width:3px;height:11px;border-radius:2px}.ch span{overflow:hidden;text-overflow:clip}
-.ch.fade{opacity:.4}.mmore{font-size:9.5px;color:var(--sub);padding-left:4px}
+.ch{display:flex;align-items:center;gap:3px;font-size:11px;line-height:15px;margin-top:2px;white-space:nowrap;overflow:hidden;border-radius:3px;padding:1px 1px 1px 0;max-width:100%}
+.ch i{flex:none;width:4px;height:12px;border-radius:2px}.ch span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.ch.fade{opacity:.4}.mmore{font-size:10px;color:var(--sub);padding-left:5px;line-height:14px;margin-top:1px}
 </style></head><body>
 <header><div class="hrow"><h1 id="ttl">今天</h1><button class="lockbtn" id="lockbtn">🔒 解锁编辑</button></div><div class="sub" id="subt"></div><div id="savest"></div></header>
 <main id="view"></main>
@@ -112,7 +112,17 @@ const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const due=t=>t.date?new Date(pd(t.date).getTime()+(t.time?(+t.time.slice(0,2)*60+ +t.time.slice(3))*6e4:864e5-1)):null;
 const isOver=t=>!t.done&&t.date&&!t.time&&due(t)<new Date();
 const isPast=t=>!t.done&&t.date&&t.time&&due(t)<new Date();
-const remTxt=t=>t.rem&&t.rem.length?'🔔 提前'+t.rem.map(m=>m>=60?(m/60)+'小时':m+'分钟').join('、'):'';
+function remOne(m,t){
+  m=Math.round(+m||0);if(m<=0)return '准点';
+  // 截止类 / 提前超过半天：若刚好落在当天 dayOfHour，显示「当天 09:00」；短提前提醒不套这个标签
+  if(t&&t.time&&m>=720){const[H,Mi]=t.time.split(':').map(Number);let tot=H*60+Mi-m,dayOff=0;while(tot<0){tot+=1440;dayOff--}while(tot>=1440){tot-=1440;dayOff++}
+    const rh=Math.floor(tot/60),rmin=tot%60,doh=(RULES.reminder&&RULES.reminder.dayOfHour)||9;
+    if(dayOff===0&&rh===doh&&rmin===0)return '当天 '+String(rh).padStart(2,'0')+':00'}
+  const nd=Math.round(m/1440);if(nd>=1&&Math.abs(m-nd*1440)<=180)return '提前 '+nd+' 天';
+  if(m%60===0){const h=m/60;return (h>=24&&h%24===0)?'提前 '+(h/24)+' 天':'提前 '+h+' 小时'}
+  const h=Math.floor(m/60),mm=m%60;if(h>=24){const d=Math.floor(h/24),hh=h%24;return '提前 '+d+' 天'+(hh?' '+hh+' 小时':'')+(mm?' '+mm+' 分':'')}
+  if(h)return '提前 '+h+' 小时'+(mm?' '+mm+' 分':'');return '提前 '+mm+' 分钟'}
+const remTxt=t=>t.rem&&t.rem.length?'🔔 '+[...t.rem].map(m=>remOne(m,t)).join('、'):'';
 
 
 // ---- 统一规则（与 Python schedlib.py 共用 rules.json；这里内置一份默认值，加载时以线上 rules.json 为准）----
@@ -256,7 +266,7 @@ function form(t,forceNew){
   nl.oninput=upd;if(isNew)setTimeout(()=>nl.focus(),250);
   $('#f-q').onclick=e=>{const b=e.target.closest('button');if(!b)return;q=+b.dataset.q;document.querySelectorAll('#f-q button').forEach(x=>x.classList.toggle('on',x===b))};
   $('#f-ok').onclick=()=>{const title=(parsed&&(parsed.date||parsed.time))?parsed.title:nl.value.trim();if(!title)return nl.focus();
-    const o={title,date:$('#f-date').value||null,time:$('#f-time').value||null,q,rem:$('#f-rem').value.split(/[,，\s]+/).map(Number).filter(n=>n>0),note:$('#f-note').value};
+    const o={title,date:$('#f-date').value||null,time:$('#f-time').value||null,q,rem:$('#f-rem').value.split(/[,，\s]+/).map(s=>Math.round(+s)).filter(n=>!isNaN(n)&&n>=0),note:$('#f-note').value};
     const id=isNew?(t&&t.id||uid()):t.id;closeSheet();if(isNew)commit(d=>{d.tasks.push({id,done:false,...o})},'新增：'+o.title);else commit(d=>{const x=d.tasks.find(x=>x.id===id);if(x)Object.assign(x,o)},'修改：'+o.title)};
   if(!isNew){$('#f-del').onclick=()=>{if(confirm('确定删除「'+t.title+'」？删除后不能恢复。')){const id=t.id;closeSheet();commit(d=>{d.tasks=d.tasks.filter(x=>x.id!==id)},'删除：'+t.title)}};$('#f-cancel').onclick=closeSheet}
 }
@@ -402,9 +412,9 @@ function dayMark(k){if(FEST[k])return[FEST[k],'hol'];if(OFF.has(k))return['休',
 function monthH(){const T=S.tasks,td=today();if(!MV){const d=pd(selDay);MV=[d.getFullYear(),d.getMonth()]}
   const [y,mo]=MV,f=new Date(y,mo,1),st=new Date(f);st.setDate(1-(f.getDay()+6)%7);const last=new Date(y,mo+1,0);const n=Math.ceil(((f.getDay()+6)%7+last.getDate())/7)*7;
   let h=`<div class="card" id="mcal" style="padding:10px 6px 4px"><div class="mh"><button class="ar" data-act="mon" data-n="-1" aria-label="上个月">‹</button><b>${y}年${mo+1}月</b><button class="tb" data-act="mtoday">今天</button><button class="ar" data-act="mon" data-n="1" aria-label="下个月">›</button></div><div class="mwd">${'一二三四五六日'.split('').map(c=>'<div>'+c+'</div>').join('')}</div><div class="mg">`;
-  for(let i=0;i<n;i++){const d=new Date(st);d.setDate(st.getDate()+i);const k=ds(d),L=T.filter(t=>t.date===k).sort((a,b)=>(a.time||'99').localeCompare(b.time||'99'));const [mk,mkc]=dayMark(k);const MAX=3,sh=L.length>MAX?L.slice(0,MAX-1):L;
+  for(let i=0;i<n;i++){const d=new Date(st);d.setDate(st.getDate()+i);const k=ds(d),L=T.filter(t=>t.date===k).sort((a,b)=>(a.time||'99').localeCompare(b.time||'99'));const [mk,mkc]=dayMark(k);const MAX=2,sh=L.slice(0,MAX);
     h+=`<div class="mc ${d.getMonth()!==mo?'out':''} ${k===td?'td':''} ${k===selDay?'sel':''} ${d.getDay()%6===0?'we':''}" data-act="msel" data-d="${k}"><div class="dn"><b>${d.getDate()}</b><s class="${mkc}">${mk}</s></div>`+
-      sh.map(t=>`<div class="ch ${t.done||isPast(t)?'fade':''}"><i style="background:var(${QN[EQ(t)][1]})"></i><span>${esc(t.title.replace(/\s*@.*/,''))}</span></div>`).join('')+(L.length>MAX?`<div class="mmore">+${L.length-sh.length}</div>`:'')+'</div>'}
+      sh.map(t=>{const tip=t.title.replace(/\s*@.*/,'').replace(/（截止）/g,'').trim();return `<div class="ch ${t.done||isPast(t)?'fade':''}"><i style="background:var(${QN[EQ(t)][1]})"></i><span>${esc(tip)}</span></div>`}).join('')+(L.length>MAX?`<div class="mmore">+${L.length-MAX}</div>`:'')+'</div>'}
   h+='</div></div>';
   const L=T.filter(t=>t.date===selDay).sort((a,b)=>(a.time||'99').localeCompare(b.time||'99'));
   const [sm]=dayMark(selDay);
