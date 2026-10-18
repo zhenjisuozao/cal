@@ -62,6 +62,25 @@ input,textarea,select{width:100%;font:inherit;padding:10px;border:1px solid var(
 .lockbtn.on{color:var(--q2)}
 #savest{font-size:12px;min-height:16px;color:var(--sub)}#savest.err{color:var(--q1)}#savest.ok{color:var(--q2)}
 .pwerr{color:var(--q1);font-size:14px;min-height:20px}
+
+.seg{display:inline-flex;background:var(--line);border-radius:9px;padding:2px;gap:2px}
+.seg button{border:0;background:none;width:38px;height:30px;border-radius:7px;color:var(--sub);display:grid;place-items:center;padding:0}
+.seg button.on{background:var(--card);color:var(--pri);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.mh{display:flex;align-items:center;gap:6px;margin-bottom:6px}.mh b{flex:1;font-size:19px}
+.mh .ar{border:0;background:none;color:var(--pri);font-size:26px;width:36px;height:36px;line-height:1}
+.mh .tb{border:1px solid var(--line);background:var(--card);color:var(--pri);border-radius:999px;padding:4px 12px;font-size:13px}
+.mwd{display:grid;grid-template-columns:repeat(7,1fr);font-size:11px;color:var(--sub);text-align:center;padding-bottom:4px;border-bottom:1px solid var(--line)}
+.mg{display:grid;grid-template-columns:repeat(7,1fr)}
+.mc{min-height:76px;border-bottom:1px solid var(--line);padding:3px 2px;overflow:hidden;cursor:pointer;min-width:0}
+.mc.out{opacity:.35}.mc.sel{background:rgba(37,99,235,.08);border-radius:6px}
+.mc .dn{display:flex;flex-direction:column;align-items:center;line-height:1.1}
+.mc .dn b{font-size:14px;font-weight:500;width:24px;height:24px;display:grid;place-items:center;border-radius:50%}
+.mc.td .dn b{background:var(--now);color:#fff;font-weight:700}
+.mc .dn s{text-decoration:none;font-size:9px;color:var(--sub);white-space:nowrap;min-height:11px}.mc .dn s.hol{color:var(--q1);font-weight:600}.mc .dn s.wrk{color:var(--pri);font-weight:600}
+.mc.we .dn b{color:var(--sub)}.mc.td.we .dn b{color:#fff}
+.ch{display:flex;align-items:center;gap:2px;font-size:9.5px;line-height:13px;margin-top:2px;white-space:nowrap;overflow:hidden;border-radius:3px;padding-right:1px}
+.ch i{flex:none;width:3px;height:11px;border-radius:2px}.ch span{overflow:hidden;text-overflow:clip}
+.ch.fade{opacity:.4}.mmore{font-size:9.5px;color:var(--sub);padding-left:4px}
 </style></head><body>
 <header><div class="hrow"><h1 id="ttl">今天</h1><button class="lockbtn" id="lockbtn">🔒 解锁编辑</button></div><div class="sub" id="subt"></div><div id="savest"></div></header>
 <main id="view"></main>
@@ -167,6 +186,8 @@ function _render(){
     for(const q of [1,2,3,4]){const L=T.filter(t=>t.q===q&&!t.done).sort((a,b)=>(due(a)||9e15)-(due(b)||9e15));const show=expandQ===q?L:L.slice(0,5);
       h+=`<div class="q" data-q="${q}" style="border-color:var(${QN[q][1]})"><h3 style="color:var(${QN[q][1]})">${QN[q][0]} · ${L.length}</h3>${show.map(t=>itemHTML(t,1)).join('')||'<div class="empty">空</div>'}${L.length>5&&expandQ!==q?`<div class="more" data-act="more" data-q="${q}">展开全部 ${L.length} 条</div>`:''}</div>`}
     v.innerHTML=h+'</div>';
+  }else if(cur==='agenda'&&AV==='month'){
+    $('#ttl').textContent='日程';$('#subt').textContent='';v.innerHTML=segH()+monthH();
   }else if(cur==='agenda'){
     $('#ttl').textContent='日程';$('#subt').textContent=fmtD(selDay);
     const sd=pd(selDay),mon=new Date(sd);mon.setDate(sd.getDate()-(sd.getDay()+6)%7);
@@ -178,7 +199,7 @@ function _render(){
       if(L.length)h+=`<div class="sec">${fmtD(k)}${k===today()?' · 今天':''}</div><div class="card">${L.map(t=>itemHTML(t)).join('')}</div>`}
     const nd=T.filter(t=>!t.date&&!t.done);if(nd.length)h+=`<div class="sec">无日期</div><div class="card">${nd.map(t=>itemHTML(t)).join('')}</div>`;
     if(!h.includes('class="sec"'))h+='<div class="empty">未来 14 天没有安排</div>';
-    v.innerHTML=h;
+    v.innerHTML=segH()+h;
   }else{
     $('#ttl').textContent='目标';$('#subt').textContent='季度目标与进度';
     let h=S.goals.map(g=>`<div class="card" data-gid="${g.id}"><div class="row"><div style="flex:3;font-weight:600">${esc(g.title)}</div><div style="text-align:right;color:var(--sub)">${g.p}%</div></div><div class="prog"><div style="width:${g.p}%"></div></div><input type="range" min="0" max="100" step="5" value="${g.p}" data-act="gp"><div class="row"><button class="btn ghost" data-act="gedit">改名</button><button class="btn ghost" data-act="gdel">删除</button></div></div>`).join('');
@@ -258,7 +279,7 @@ async function pull(){if(SAVING)return;try{let d;
 function setData(d){S={rev:d.rev||0,updatedAt:d.updatedAt,tasks:d.tasks,goals:d.goals||[]};UPD=bjTime(d.updatedAt);save()}
 function detail(t){openSheet(`<div style="display:flex;gap:8px;align-items:center"><span style="width:10px;height:10px;border-radius:3px;background:var(${QN[t.q][1]})"></span><b>${QN[t.q][0]}</b></div><h3 style="margin:8px 0">${esc(t.title)}</h3><div class="sub">${t.date?fmtD(t.date):'无日期'} ${t.time||''} ${remTxt(t)}</div>${t.note?`<div style="margin-top:10px;white-space:pre-wrap">${esc(t.note)}</div>`:''}<button class="btn" onclick="askUnlock()">🔒 解锁编辑</button><button class="btn ghost" onclick="closeSheet()">关闭</button>`)}
 const roBlock=e=>{if(!RO||!e.target.closest||!e.target.closest('#view'))return;const it=e.target.closest&&e.target.closest('#view .item');const a=e.target.closest&&e.target.closest('[data-act]');const act=a&&a.dataset.act;
-  if(e.type==='click'){if(['more','sel','wk','today'].includes(act))return;e.stopPropagation();e.preventDefault();if(it){const t=S.tasks.find(x=>x.id===it.dataset.id);t&&detail(t)}}
+  if(e.type==='click'){if(['more','sel','wk','today','av','mon','mtoday','msel'].includes(act))return;e.stopPropagation();e.preventDefault();if(it){const t=S.tasks.find(x=>x.id===it.dataset.id);t&&detail(t)}}
   else if(it){e.stopPropagation()}};
 addEventListener('click',roBlock,true);addEventListener('pointerdown',roBlock,true);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)pull()});addEventListener('pageshow',pull);
@@ -331,6 +352,37 @@ async function push(op,msg){SAVING=true;status('保存中…');
       setData(d);SAVING=false;status('已保存','ok');if(!$('#sheet').classList.contains('open'))render();window.__lastSave={rev:d.rev,commit:c.sha};return}
     throw new Error('conflict')}
   catch(e){SAVING=false;if(e.auth){lockOut('保存失败：编辑钥匙已失效，请重新解锁');}else status(e.message==='conflict'?'保存失败：多处同时修改，请刷新后重试':'保存失败：网络或 GitHub 出错，请稍后重试','err');window.__lastSave={err:String(e)};pull()}}
+
+// ---- 月视图 ----
+const AVKEY='xd-agenda-view';
+let AV=localStorage.getItem(AVKEY)==='month'?'month':'list',MV=null;
+const IC_L='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></svg>';
+const IC_M='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/><path d="M7.5 13.5h.01M12 13.5h.01M16.5 13.5h.01M7.5 17h.01M12 17h.01" stroke-width="2.6"/></svg>';
+const segH=()=>`<div style="display:flex;justify-content:flex-end;margin:2px 0 4px"><div class="seg"><button data-act="av" data-v="list" class="${AV==='list'?'on':''}" aria-label="列表">${IC_L}</button><button data-act="av" data-v="month" class="${AV==='month'?'on':''}" aria-label="月历">${IC_M}</button></div></div>`;
+// 节日名（公历+传统）；2026-2027。格子不显示农历日。
+const FEST={'2026-01-01':'元旦','2026-02-16':'除夕','2026-02-17':'春节','2026-03-03':'元宵','2026-04-05':'清明','2026-05-01':'劳动','2026-06-01':'儿童','2026-06-19':'端午','2026-08-19':'七夕','2026-09-10':'教师','2026-09-25':'中秋','2026-10-01':'国庆','2026-10-18':'重阳','2026-12-25':'圣诞','2027-01-01':'元旦','2027-02-05':'除夕','2027-02-06':'春节','2027-02-20':'元宵','2027-04-05':'清明','2027-05-01':'劳动','2027-06-01':'儿童','2027-06-09':'端午','2027-08-08':'七夕','2027-09-10':'教师','2027-09-15':'中秋','2027-10-01':'国庆','2027-10-08':'重阳','2027-12-25':'圣诞'};
+// 2026 国务院放假/调休（国办发明电〔2025〕7号）。2027 未公布，只标节日名不标休班。
+const OFF=new Set(['2026-01-01','2026-01-02','2026-01-03','2026-02-15','2026-02-16','2026-02-17','2026-02-18','2026-02-19','2026-02-20','2026-02-21','2026-02-22','2026-02-23','2026-04-04','2026-04-05','2026-04-06','2026-05-01','2026-05-02','2026-05-03','2026-05-04','2026-05-05','2026-06-19','2026-06-20','2026-06-21','2026-09-25','2026-09-26','2026-09-27','2026-10-01','2026-10-02','2026-10-03','2026-10-04','2026-10-05','2026-10-06','2026-10-07']);
+const WORK=new Set(['2026-01-04','2026-02-14','2026-02-28','2026-05-09','2026-09-20','2026-10-10']);
+function dayMark(k){if(FEST[k])return[FEST[k],'hol'];if(OFF.has(k))return['休','hol'];if(WORK.has(k))return['班','wrk'];return['','']}
+function monthH(){const T=S.tasks,td=today();if(!MV){const d=pd(selDay);MV=[d.getFullYear(),d.getMonth()]}
+  const [y,mo]=MV,f=new Date(y,mo,1),st=new Date(f);st.setDate(1-(f.getDay()+6)%7);const last=new Date(y,mo+1,0);const n=Math.ceil(((f.getDay()+6)%7+last.getDate())/7)*7;
+  let h=`<div class="card" id="mcal" style="padding:10px 6px 4px"><div class="mh"><button class="ar" data-act="mon" data-n="-1" aria-label="上个月">‹</button><b>${y}年${mo+1}月</b><button class="tb" data-act="mtoday">今天</button><button class="ar" data-act="mon" data-n="1" aria-label="下个月">›</button></div><div class="mwd">${'一二三四五六日'.split('').map(c=>'<div>'+c+'</div>').join('')}</div><div class="mg">`;
+  for(let i=0;i<n;i++){const d=new Date(st);d.setDate(st.getDate()+i);const k=ds(d),L=T.filter(t=>t.date===k).sort((a,b)=>(a.time||'99').localeCompare(b.time||'99'));const [mk,mkc]=dayMark(k);const MAX=3,sh=L.length>MAX?L.slice(0,MAX-1):L;
+    h+=`<div class="mc ${d.getMonth()!==mo?'out':''} ${k===td?'td':''} ${k===selDay?'sel':''} ${d.getDay()%6===0?'we':''}" data-act="msel" data-d="${k}"><div class="dn"><b>${d.getDate()}</b><s class="${mkc}">${mk}</s></div>`+
+      sh.map(t=>`<div class="ch ${t.done||isPast(t)?'fade':''}"><i style="background:var(${QN[t.q][1]})"></i><span>${esc(t.title.replace(/\s*@.*/,''))}</span></div>`).join('')+(L.length>MAX?`<div class="mmore">+${L.length-sh.length}</div>`:'')+'</div>'}
+  h+='</div></div>';
+  const L=T.filter(t=>t.date===selDay).sort((a,b)=>(a.time||'99').localeCompare(b.time||'99'));
+  const [sm]=dayMark(selDay);
+  h+=`<div class="sec">${fmtD(selDay)}${selDay===td?' · 今天':''}${sm?' · '+sm:''}</div><div class="card">${L.length?L.map(t=>itemHTML(t)).join(''):'<div class="empty">这天没有安排</div>'}</div>`;
+  return h}
+$('#view').addEventListener('click',e=>{const a=e.target.closest('[data-act]');if(!a)return;const act=a.dataset.act;
+  if(act==='av'){AV=a.dataset.v;localStorage.setItem(AVKEY,AV);MV=null;render()}
+  if(act==='mon'){MV=[MV[0],MV[1]+ +a.dataset.n];if(MV[1]<0)MV=[MV[0]-1,11];if(MV[1]>11)MV=[MV[0]+1,0];render()}
+  if(act==='mtoday'){selDay=today();MV=null;render()}
+  if(act==='msel'){selDay=a.dataset.d;const d=pd(selDay);MV=[d.getFullYear(),d.getMonth()];render()}},true);
+let msx=null,msy;$('#view').addEventListener('touchstart',e=>{if(e.target.closest('#mcal')){msx=e.touches[0].clientX;msy=e.touches[0].clientY}else msx=null},{passive:true});
+$('#view').addEventListener('touchend',e=>{if(msx===null)return;const dx=e.changedTouches[0].clientX-msx,dy=e.changedTouches[0].clientY-msy;msx=null;if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*1.5){MV=[MV[0],MV[1]+(dx<0?1:-1)];if(MV[1]<0)MV=[MV[0]-1,11];if(MV[1]>11)MV=[MV[0]+1,0];render()}},{passive:true});
 TOKEN=localStorage.getItem(TKEY);applyMode();pull();
 render();setInterval(()=>{pull()},300000);setInterval(()=>{if(!$('#sheet').classList.contains('open'))render()},60000);
 </script></body></html>
