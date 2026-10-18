@@ -191,7 +191,7 @@ function openSheet(html){$('#sheet').innerHTML=html;$('#mask').style.display='bl
 function closeSheet(){$('#sheet').classList.remove('open');$('#mask').style.display='none'}
 $('#mask').onclick=closeSheet;
 function form(t){
-  const isNew=!t;t=t||{title:'',date:null,time:null,q:2,rem:[15],note:''};
+  const isNew=!t;t=t||{title:'',date:null,time:null,q:2,rem:[60],note:''};
   openSheet(`<h3 style="margin:0 0 8px">${isNew?'新建':'编辑'}</h3>
   <input id="f-nl" placeholder="例：下周一下午4点 见人聊天" value="${esc(isNew?'':t.title)}" autocomplete="off">
   <div class="tags" id="f-tags"></div>
