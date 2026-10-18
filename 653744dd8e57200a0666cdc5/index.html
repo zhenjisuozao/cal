@@ -114,6 +114,32 @@ const isOver=t=>!t.done&&t.date&&!t.time&&due(t)<new Date();
 const isPast=t=>!t.done&&t.date&&t.time&&due(t)<new Date();
 const remTxt=t=>t.rem&&t.rem.length?'🔔 提前'+t.rem.map(m=>m>=60?(m/60)+'小时':m+'分钟').join('、'):'';
 
+
+// ---- 统一规则（与 Python schedlib.py 共用 rules.json；这里内置一份默认值，加载时以线上 rules.json 为准）----
+let RULES={"_说明": "日程规则的唯一定义。validate.py / due_reminders.py / make_ics.py（经 schedlib.py）和网页 index.html 都读这一份。改规则只改这里。", "quadrants": {"1": "重要且紧急", "2": "重要不紧急", "3": "紧急不重要", "4": "不重要不紧急"}, "duration": {"defaultMin": 60, "notePattern": "时长\\s*(\\d+(?:\\.\\d+)?)\\s*(分钟|分|小时|h)"}, "conflict": {"severity": "冲突"}, "near": {"gapMin": 30}, "lateNight": {"fromHour": 0, "toHour": 6}, "duplicate": {"similarity": 0.7}, "deadline": {"titleMarker": "（截止）", "noteMarker": "产品类", "escalateHours": 48, "workloadPattern": "工作量\\s*(\\d+(?:\\.\\d+)?)\\s*小时", "workloadFactor": 2}, "reminder": {"defaultLeadMin": 60, "none": "无提醒", "onTime": "准点", "leadPattern": "提前\\s*(\\d+(?:\\.\\d+)?)\\s*(分钟|分|小时)", "quietFromHour": 23, "quietToHour": 8, "quietMoveToHour": 22, "dayOfHour": 9, "finalLeadMin": 60}, "dashboardUrl": "https://zhenjisuozao.github.io/cal/653744dd8e57200a0666cdc5/"};
+fetch('rules.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{if(j){RULES=j;render()}}).catch(()=>{});
+const tStart=t=>t.date?new Date(pd(t.date).getTime()+(t.time?(+t.time.slice(0,2)*60+ +t.time.slice(3))*6e4:0)):null;
+const isDL=t=>(t.title||'').includes(RULES.deadline.titleMarker)||(t.note||'').includes(RULES.deadline.noteMarker);
+const tLoc=t=>(t.title||'').includes('@')?t.title.split('@').slice(1).join('@').trim():'';
+function durMin(t){if(isDL(t))return 0;const m=(t.note||'').match(new RegExp(RULES.duration.notePattern));return m?+m[1]*(/小时|h/.test(m[2])?60:1):RULES.duration.defaultMin}
+function escAt(t){if(!isDL(t)||!t.date||!t.time)return null;const D=RULES.deadline,due=tStart(t);let x=due.getTime()-D.escalateHours*36e5;const m=(t.note||'').match(new RegExp(D.workloadPattern));if(m)x=Math.min(x,due.getTime()-(+m[1])*D.workloadFactor*36e5);return new Date(x)}
+const EQ=(t,now=new Date())=>{if(t.done)return t.q;const e=escAt(t);return e&&now>=e?1:t.q};
+const normT=s=>(s||'').split(RULES.deadline.titleMarker).join('').replace(/[\s（）()@·,，。:：]/g,'').toLowerCase();
+function dice(a,b){a=normT(a);b=normT(b);if(a===b)return 1;const A=[],B={};for(let i=0;i<a.length-1;i++)A.push(a.slice(i,i+2));let nb=0;for(let i=0;i<b.length-1;i++){const g=b.slice(i,i+2);B[g]=(B[g]||0)+1;nb++}if(!A.length||!nb)return 0;let c=0;for(const g of A)if(B[g]>0){B[g]--;c++}return 2*c/(A.length+nb)}
+const fmtT=t=>(t.date?t.date.slice(5).replace('-','/'):'')+' '+(t.time||'')+' '+t.title;
+function checkTask(n,all,now=new Date()){const out=[];if(n.done||!n.date)return out;const ns=tStart(n);
+  if(n.time&&ns<now)out.push({type:'past',level:'error',msg:'时间已过：'+fmtT(n)+' 早于现在'});
+  if(!n.time&&n.date<today())out.push({type:'past',level:'error',msg:'日期已过：'+fmtT(n)});
+  const L=RULES.lateNight;if(n.time){const h=+n.time.slice(0,2);if(h>=L.fromHour&&h<L.toHour)out.push({type:'latenight',level:'warn',msg:'深夜时间 '+n.time+'，是不是上下午弄反了？'})}
+  for(const o of all){if(o.id===n.id||o.done||!o.date)continue;
+    if(o.date===n.date&&dice(o.title,n.title)>=RULES.duplicate.similarity)out.push({type:'duplicate',level:'warn',with:o,msg:'可能重复：同一天已有「'+fmtT(o)+'」'});
+    if(!n.time||!o.time)continue;const dn=durMin(n),dO=durMin(o);if(!dn||!dO)continue;
+    const os=tStart(o),ne=ns.getTime()+dn*6e4,oe=os.getTime()+dO*6e4;
+    if(ns<oe&&os<ne){out.push({type:'conflict',level:'error',with:o,msg:'时间冲突：与「'+fmtT(o)+'」（'+dO+'分钟）重叠'});continue}
+    const gap=(ns>=oe?ns-oe:os-ne)/6e4,ln=tLoc(n),lo=tLoc(o);
+    if(ln&&lo&&ln!==lo&&gap<RULES.near.gapMin)out.push({type:'near',level:'warn',with:o,msg:'太近：与「'+fmtT(o)+'」只隔 '+Math.round(gap)+' 分钟，地点不同（'+ln+' / '+lo+'），注意路程'})}
+  return out}
+window.checkTask=checkTask;window.EQ=EQ;
 // ---- 中文自然语言解析 ----
 const CN={'零':0,'〇':0,'一':1,'二':2,'两':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
 function cn2n(s){if(/^\d+$/.test(s))return+s;if(s==='半')return 30;let n=0,t=0;for(const c of s){const v=CN[c];if(v===10){n+=(t||1)*10;t=0}else t=v}return n+t}
@@ -155,7 +181,7 @@ let cur='today',selDay=today(),expandQ=null;
 function itemHTML(t,showDate){
   const meta=[showDate&&t.date?fmtD(t.date):'',t.time||'',remTxt(t)].filter(Boolean).join(' · ');
   const ps=isPast(t),ov=isOver(t);
-  return `<div class="item ${t.done?'done':''} ${ps?'past':''}" data-id="${t.id}"><div class="bar" style="background:var(${QN[t.q][1]})"></div><div class="chk" data-act="done">${t.done||ps?'✓':''}</div><div class="t" data-act="edit"><div>${esc(t.title)}</div>${meta||ps||ov?`<div class="meta ${ov?'overdue':ps?'pasttag':''}">${ov?'逾期 · ':ps?'已过 · ':''}${meta}</div>`:''}</div></div>`}
+  return `<div class="item ${t.done?'done':''} ${ps?'past':''}" data-id="${t.id}"><div class="bar" style="background:var(${QN[EQ(t)][1]})"></div><div class="chk" data-act="done">${t.done||ps?'✓':''}</div><div class="t" data-act="edit"><div>${esc(t.title)}</div>${meta||ps||ov?`<div class="meta ${ov?'overdue':ps?'pasttag':''}">${ov?'逾期 · ':ps?'已过 · ':''}${meta}</div>`:''}</div></div>`}
 function render(){_render();if(RO){const f=document.createElement('div');f.className='foot';f.textContent='点右上角「解锁编辑」可直接修改，也可在聊天里告诉日程提醒'+(UPD?' · 更新于 '+UPD:'');$('#view').appendChild(f)}}
 function _render(){
   const v=$('#view'),now=new Date(),td=today();
@@ -183,7 +209,7 @@ function _render(){
   }else if(cur==='quad'){
     $('#ttl').textContent='聚焦';$('#subt').textContent=RO?'红·重要且紧急 绿·重要不紧急 黄·紧急不重要 灰·不重要不紧急':'长按拖动可换象限';
     let h='<div class="grid">';
-    for(const q of [1,2,3,4]){const L=T.filter(t=>t.q===q&&!t.done).sort((a,b)=>(due(a)||9e15)-(due(b)||9e15));const show=expandQ===q?L:L.slice(0,5);
+    for(const q of [1,2,3,4]){const L=T.filter(t=>EQ(t)===q&&!t.done).sort((a,b)=>(due(a)||9e15)-(due(b)||9e15));const show=expandQ===q?L:L.slice(0,5);
       h+=`<div class="q" data-q="${q}" style="border-color:var(${QN[q][1]})"><h3 style="color:var(${QN[q][1]})">${QN[q][0]} · ${L.length}</h3>${show.map(t=>itemHTML(t,1)).join('')||'<div class="empty">空</div>'}${L.length>5&&expandQ!==q?`<div class="more" data-act="more" data-q="${q}">展开全部 ${L.length} 条</div>`:''}</div>`}
     v.innerHTML=h+'</div>';
   }else if(cur==='agenda'&&AV==='month'){
@@ -211,10 +237,10 @@ function _render(){
 function openSheet(html){$('#sheet').innerHTML=html;$('#mask').style.display='block';requestAnimationFrame(()=>$('#sheet').classList.add('open'))}
 function closeSheet(){$('#sheet').classList.remove('open');$('#mask').style.display='none'}
 $('#mask').onclick=closeSheet;
-function form(t){
-  const isNew=!t;t=t||{title:'',date:null,time:null,q:2,rem:[60],note:''};
+function form(t,forceNew){
+  const isNew=!t||!!forceNew;t=t||{title:'',date:null,time:null,q:2,rem:[60],note:''};
   openSheet(`<h3 style="margin:0 0 8px">${isNew?'新建':'编辑'}</h3>
-  <input id="f-nl" placeholder="例：下周一下午4点 见人聊天" value="${esc(isNew?'':t.title)}" autocomplete="off">
+  <input id="f-nl" placeholder="例：下周一下午4点 见人聊天" value="${esc(t.title||'')}" autocomplete="off">
   <div class="tags" id="f-tags"></div>
   <div class="row"><input type="date" id="f-date" value="${t.date||''}"><input type="time" id="f-time" value="${t.time||''}"></div>
   <div class="qs" id="f-q">${[1,2,3,4].map(q=>`<button data-q="${q}" style="color:var(${QN[q][1]})" class="${t.q===q?'on':''}">${QN[q][0]}</button>`).join('')}</div>
@@ -231,7 +257,7 @@ function form(t){
   $('#f-q').onclick=e=>{const b=e.target.closest('button');if(!b)return;q=+b.dataset.q;document.querySelectorAll('#f-q button').forEach(x=>x.classList.toggle('on',x===b))};
   $('#f-ok').onclick=()=>{const title=(parsed&&(parsed.date||parsed.time))?parsed.title:nl.value.trim();if(!title)return nl.focus();
     const o={title,date:$('#f-date').value||null,time:$('#f-time').value||null,q,rem:$('#f-rem').value.split(/[,，\s]+/).map(Number).filter(n=>n>0),note:$('#f-note').value};
-    const id=isNew?uid():t.id;closeSheet();if(isNew)commit(d=>{d.tasks.push({id,done:false,...o})},'新增：'+o.title);else commit(d=>{const x=d.tasks.find(x=>x.id===id);if(x)Object.assign(x,o)},'修改：'+o.title)};
+    const id=isNew?(t&&t.id||uid()):t.id;closeSheet();if(isNew)commit(d=>{d.tasks.push({id,done:false,...o})},'新增：'+o.title);else commit(d=>{const x=d.tasks.find(x=>x.id===id);if(x)Object.assign(x,o)},'修改：'+o.title)};
   if(!isNew){$('#f-del').onclick=()=>{if(confirm('确定删除「'+t.title+'」？删除后不能恢复。')){const id=t.id;closeSheet();commit(d=>{d.tasks=d.tasks.filter(x=>x.id!==id)},'删除：'+t.title)}};$('#f-cancel').onclick=closeSheet}
 }
 $('#fab').onclick=()=>form();
@@ -277,7 +303,7 @@ async function pull(){if(SAVING)return;try{let d;
   if((d.rev||0)<(S.rev||0))return; // Pages 还没部署到最新，先用本地
   if(SAVING)return;setData(d);window.__src='server';if(!$('#sheet').classList.contains('open'))render()}catch(e){window.__src=window.__src||'local'}}
 function setData(d){S={rev:d.rev||0,updatedAt:d.updatedAt,tasks:d.tasks,goals:d.goals||[]};UPD=bjTime(d.updatedAt);save()}
-function detail(t){openSheet(`<div style="display:flex;gap:8px;align-items:center"><span style="width:10px;height:10px;border-radius:3px;background:var(${QN[t.q][1]})"></span><b>${QN[t.q][0]}</b></div><h3 style="margin:8px 0">${esc(t.title)}</h3><div class="sub">${t.date?fmtD(t.date):'无日期'} ${t.time||''} ${remTxt(t)}</div>${t.note?`<div style="margin-top:10px;white-space:pre-wrap">${esc(t.note)}</div>`:''}<button class="btn" onclick="askUnlock()">🔒 解锁编辑</button><button class="btn ghost" onclick="closeSheet()">关闭</button>`)}
+function detail(t){openSheet(`<div style="display:flex;gap:8px;align-items:center"><span style="width:10px;height:10px;border-radius:3px;background:var(${QN[EQ(t)][1]})"></span><b>${QN[EQ(t)][0]}${EQ(t)!==t.q?'（截止临近，自动升级）':''}</b></div><h3 style="margin:8px 0">${esc(t.title)}</h3><div class="sub">${t.date?fmtD(t.date):'无日期'} ${t.time||''} ${remTxt(t)}</div>${t.note?`<div style="margin-top:10px;white-space:pre-wrap">${esc(t.note)}</div>`:''}<button class="btn" onclick="askUnlock()">🔒 解锁编辑</button><button class="btn ghost" onclick="closeSheet()">关闭</button>`)}
 const roBlock=e=>{if(!RO||!e.target.closest||!e.target.closest('#view'))return;const it=e.target.closest&&e.target.closest('#view .item');const a=e.target.closest&&e.target.closest('[data-act]');const act=a&&a.dataset.act;
   if(e.type==='click'){if(['more','sel','wk','today','av','mon','mtoday','msel'].includes(act))return;e.stopPropagation();e.preventDefault();if(it){const t=S.tasks.find(x=>x.id===it.dataset.id);t&&detail(t)}}
   else if(it){e.stopPropagation()}};
@@ -319,7 +345,7 @@ const ymd=s=>s.replace(/-/g,'');
 function nextDay(s){const d=pd(s);d.setDate(d.getDate()+1);return ds(d)}
 function addHour(date,time){const h=+time.slice(0,2)+1;return h>=24?[nextDay(date),pad(h-24)+time.slice(3)]:[date,pad(h)+time.slice(3)]}
 async function buildIcs(tasks){const ev=[];for(const t of tasks){if(!t.date)continue;let loc='';const lm=(t.note||'').match(/地点[:：]\s*([^；;]+)/);if(lm)loc=lm[1].replace(/\(.*?\)|（.*?）/g,'').trim();
-    ev.push({...t,quad:QN[t.q]?QN[t.q][0]:'',loc,uid:(await sha1hex(t.title)).slice(0,16)+'@xiaodun-schedule',key:t.date+(t.time||'00:00')})}
+    ev.push({...t,quad:QN[EQ(t)]?QN[EQ(t)][0]:'',eq:EQ(t),loc,uid:(await sha1hex(t.title)).slice(0,16)+'@xiaodun-schedule',key:t.date+(t.time||'00:00')})}
   ev.sort((a,b)=>a.key<b.key?-1:a.key>b.key?1:0);
   const now=new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d+Z$/,'Z');
   const hex=s=>[...new TextEncoder().encode(s)].map(x=>x.toString(16).padStart(2,'0')).join('').slice(0,16);
@@ -328,14 +354,22 @@ async function buildIcs(tasks){const ev=[];for(const t of tasks){if(!t.date)cont
       if(e.time){const[ed,et]=addHour(e.date,e.time);L.push(`DTSTART;TZID=Asia/Shanghai:${ymd(e.date)}T${e.time.replace(':','')}00`,`DTEND;TZID=Asia/Shanghai:${ymd(ed)}T${et.replace(':','')}00`)}
       else L.push('DTSTART;VALUE=DATE:'+ymd(e.date),'DTEND;VALUE=DATE:'+ymd(nextDay(e.date)));
       L.push('SUMMARY:'+icsEsc((e.done?'✅ ':'')+e.title),'DESCRIPTION:'+icsEsc(desc));if(e.loc)L.push('LOCATION:'+icsEsc(e.loc));if(e.quad)L.push('CATEGORIES:'+icsEsc(e.quad));
-      if(!e.done&&e.time)L.push('BEGIN:VALARM','ACTION:DISPLAY','DESCRIPTION:'+icsEsc(e.title),'TRIGGER:-PT60M','END:VALARM');L.push('END:VEVENT')}
+      if(!e.done&&e.time)for(const m of (e.rem||[]))L.push('BEGIN:VALARM','ACTION:DISPLAY','DESCRIPTION:'+icsEsc(e.title),'TRIGGER:'+(m>=0?'-':'')+'PT'+Math.abs(Math.round(m))+'M','END:VALARM');L.push('END:VEVENT')}
     if(!E.length)L.push('BEGIN:VEVENT',`UID:placeholder-${hex(name)}@xd`,'DTSTAMP:'+now,'DTSTART;VALUE=DATE:20000101','DTEND;VALUE=DATE:20000102','SUMMARY:（占位）','TRANSP:TRANSPARENT','END:VEVENT');
     L.push('END:VCALENDAR');return L.map(fold).join('\r\n')+'\r\n'};
-  const F={'all.ics':cal(ev,'日程提醒')};for(const q of [1,2,3,4])F[`q${q}.ics`]=cal(ev.filter(e=>e.q===q),'日程提醒·'+QN[q][0]);return F}
+  const F={'all.ics':cal(ev,'日程提醒')};for(const q of [1,2,3,4])F[`q${q}.ics`]=cal(ev.filter(e=>e.eq===q),'日程提醒·'+QN[q][0]);return F}
 window.buildIcs=buildIcs;
 function bjISO(){const d=new Date(Date.now()+8*36e5);return d.toISOString().slice(0,19)+'+08:00'}
-function commit(op,msg){if(!TOKEN){askUnlock();return}
-  const loc=JSON.parse(JSON.stringify(S));op(loc);S.tasks=loc.tasks;S.goals=loc.goals;render(); // 本地立即更新
+// 所有写入都经过 commit；这里统一校验（新增/编辑/拖动/右滑改到明天/逾期挪到今天…）
+function changedTasks(before,after){const m={};before.forEach(t=>m[t.id]=t);return after.filter(t=>{const b=m[t.id];return !t.done&&(!b||b.date!==t.date||b.time!==t.time||b.title!==t.title||(b.done&&!t.done))})}
+function conflictDialog(list,onSave,onEdit){const rows=list.map(({t,iss})=>`<div style="margin:8px 0"><b>${esc(fmtT(t))}</b>${iss.map(i=>`<div class="sub" style="color:${i.level==='error'?'var(--q1)':'var(--q3)'};margin-top:3px">${i.level==='error'?'⛔':'⚠️'} ${esc(i.msg)}</div>`).join('')}</div>`).join('');
+  openSheet(`<h3 style="margin:0 0 4px">保存前请确认</h3><div class="sub">这次修改有下面的问题：</div>${rows}
+  <button class="btn" id="cf-save">仍然保存</button><div class="row"><button class="btn ghost" id="cf-edit">改时间</button><button class="btn ghost" id="cf-cancel">取消</button></div>`);
+  $('#cf-save').onclick=()=>{closeSheet();onSave()};$('#cf-edit').onclick=()=>{closeSheet();onEdit()};$('#cf-cancel').onclick=()=>{closeSheet();render();status('已取消，未保存')}}
+function commit(op,msg,opt={}){if(!TOKEN){askUnlock();return}
+  const loc=JSON.parse(JSON.stringify(S));op(loc);
+  if(!opt.force){const list=changedTasks(S.tasks,loc.tasks).map(t=>({t,iss:checkTask(t,loc.tasks)})).filter(x=>x.iss.length);
+    if(list.length){window.__lastCheck=list;conflictDialog(list,()=>commit(op,msg,{force:true}),()=>{const t=list[0].t;const isNew=!S.tasks.some(x=>x.id===t.id);form(t,isNew)});return}}S.tasks=loc.tasks;S.goals=loc.goals;render(); // 本地立即更新
   QUEUE=QUEUE.then(()=>push(op,msg));return QUEUE}
 async function push(op,msg){SAVING=true;status('保存中…');
   try{for(let n=0;n<5;n++){
@@ -370,7 +404,7 @@ function monthH(){const T=S.tasks,td=today();if(!MV){const d=pd(selDay);MV=[d.ge
   let h=`<div class="card" id="mcal" style="padding:10px 6px 4px"><div class="mh"><button class="ar" data-act="mon" data-n="-1" aria-label="上个月">‹</button><b>${y}年${mo+1}月</b><button class="tb" data-act="mtoday">今天</button><button class="ar" data-act="mon" data-n="1" aria-label="下个月">›</button></div><div class="mwd">${'一二三四五六日'.split('').map(c=>'<div>'+c+'</div>').join('')}</div><div class="mg">`;
   for(let i=0;i<n;i++){const d=new Date(st);d.setDate(st.getDate()+i);const k=ds(d),L=T.filter(t=>t.date===k).sort((a,b)=>(a.time||'99').localeCompare(b.time||'99'));const [mk,mkc]=dayMark(k);const MAX=3,sh=L.length>MAX?L.slice(0,MAX-1):L;
     h+=`<div class="mc ${d.getMonth()!==mo?'out':''} ${k===td?'td':''} ${k===selDay?'sel':''} ${d.getDay()%6===0?'we':''}" data-act="msel" data-d="${k}"><div class="dn"><b>${d.getDate()}</b><s class="${mkc}">${mk}</s></div>`+
-      sh.map(t=>`<div class="ch ${t.done||isPast(t)?'fade':''}"><i style="background:var(${QN[t.q][1]})"></i><span>${esc(t.title.replace(/\s*@.*/,''))}</span></div>`).join('')+(L.length>MAX?`<div class="mmore">+${L.length-sh.length}</div>`:'')+'</div>'}
+      sh.map(t=>`<div class="ch ${t.done||isPast(t)?'fade':''}"><i style="background:var(${QN[EQ(t)][1]})"></i><span>${esc(t.title.replace(/\s*@.*/,''))}</span></div>`).join('')+(L.length>MAX?`<div class="mmore">+${L.length-sh.length}</div>`:'')+'</div>'}
   h+='</div></div>';
   const L=T.filter(t=>t.date===selDay).sort((a,b)=>(a.time||'99').localeCompare(b.time||'99'));
   const [sm]=dayMark(selDay);

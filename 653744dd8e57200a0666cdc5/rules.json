@@ -1,0 +1,28 @@
+{
+  "_说明": "日程规则的唯一定义。validate.py / due_reminders.py / make_ics.py（经 schedlib.py）和网页 index.html 都读这一份。改规则只改这里。",
+  "quadrants": {"1": "重要且紧急", "2": "重要不紧急", "3": "紧急不重要", "4": "不重要不紧急"},
+  "duration": {"defaultMin": 60, "notePattern": "时长\\s*(\\d+(?:\\.\\d+)?)\\s*(分钟|分|小时|h)"},
+  "conflict": {"severity": "冲突"},
+  "near": {"gapMin": 30},
+  "lateNight": {"fromHour": 0, "toHour": 6},
+  "duplicate": {"similarity": 0.7},
+  "deadline": {
+    "titleMarker": "（截止）",
+    "noteMarker": "产品类",
+    "escalateHours": 48,
+    "workloadPattern": "工作量\\s*(\\d+(?:\\.\\d+)?)\\s*小时",
+    "workloadFactor": 2
+  },
+  "reminder": {
+    "defaultLeadMin": 60,
+    "none": "无提醒",
+    "onTime": "准点",
+    "leadPattern": "提前\\s*(\\d+(?:\\.\\d+)?)\\s*(分钟|分|小时)",
+    "quietFromHour": 23,
+    "quietToHour": 8,
+    "quietMoveToHour": 22,
+    "dayOfHour": 9,
+    "finalLeadMin": 60
+  },
+  "dashboardUrl": "https://zhenjisuozao.github.io/cal/653744dd8e57200a0666cdc5/"
+}
