@@ -55,8 +55,15 @@ input,textarea,select{width:100%;font:inherit;padding:10px;border:1px solid var(
 .row{display:flex;gap:8px}.row>*{flex:1}
 .empty{color:var(--sub);font-size:14px;padding:8px 0}
 .ghostdrag{position:fixed;pointer-events:none;z-index:30;opacity:.85;background:var(--card);padding:6px 10px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.2);font-size:14px}
+.past .chk{background:var(--q4);border-color:var(--q4)}.past .t{opacity:.55}.past .bar{opacity:.4}
+.pasttag{color:var(--sub)}
+.hrow{display:flex;align-items:center;gap:8px}.hrow h1{flex:1}
+.lockbtn{border:1px solid var(--line);background:var(--card);color:var(--pri);border-radius:999px;padding:6px 12px;font-size:13px;min-height:34px}
+.lockbtn.on{color:var(--q2)}
+#savest{font-size:12px;min-height:16px;color:var(--sub)}#savest.err{color:var(--q1)}#savest.ok{color:var(--q2)}
+.pwerr{color:var(--q1);font-size:14px;min-height:20px}
 </style></head><body>
-<header><h1 id="ttl">今天</h1><div class="sub" id="subt"></div></header>
+<header><div class="hrow"><h1 id="ttl">今天</h1><button class="lockbtn" id="lockbtn">🔒 解锁编辑</button></div><div class="sub" id="subt"></div><div id="savest"></div></header>
 <main id="view"></main>
 <button class="fab" id="fab" aria-label="添加">+</button>
 <nav id="nav">
@@ -73,8 +80,8 @@ const WD='日一二三四五六';
 const $=s=>document.querySelector(s);
 const KEY='xd-schedule-v1';
 let RO=false,UPD=null;
-let S=JSON.parse(localStorage.getItem(KEY)||'null');
-if(!S){S={tasks:[{id:'seed2',title:'送女儿去名商高尔夫打球',date:'2026-10-18',time:'08:00',q:2,rem:[60],note:'8:00出发，8:30到球场（沙河东路111号）',done:false},{id:'seed1',title:'跟袁灏见面聊天 @MR. WALDEN COFFEE 万象天地',date:'2026-10-18',time:'09:00',q:2,rem:[60],note:'原定10/19 16:00改期；球场过去约3公里、10-15分钟',done:false}],goals:[{id:'g1',title:'本季度目标（待填写）',p:0}]};save();}
+let S=JSON.parse(localStorage.getItem(KEY)||'null');if(S&&S.rev===undefined)S=null;
+if(!S){S={rev:0,tasks:[{id:'seed2',title:'送女儿去名商高尔夫打球',date:'2026-10-18',time:'08:00',q:2,rem:[60],note:'8:00出发，8:30到球场（沙河东路111号）',done:false},{id:'seed1',title:'跟袁灏见面聊天 @MR. WALDEN COFFEE 万象天地',date:'2026-10-18',time:'09:00',q:2,rem:[60],note:'原定10/19 16:00改期；球场过去约3公里、10-15分钟',done:false},{id:'seed3',title:'决定是否让 Grok Bot 重开 iPhone Duo 港深门店盯货',date:'2026-10-22',time:'10:00',q:2,rem:[0],note:'iPhone Duo 10/23 发售，门店可能有现货自提；确认后去主助手聊天说一声',done:false}],goals:[{id:'g1',title:'本季度目标（待填写）',p:0}]};save();}
 function save(){localStorage.setItem(KEY,JSON.stringify(S))}
 const pad=n=>String(n).padStart(2,'0');
 const ds=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
@@ -84,7 +91,8 @@ const fmtD=s=>{const d=pd(s);return (d.getMonth()+1)+'月'+d.getDate()+'日 周'
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const due=t=>t.date?new Date(pd(t.date).getTime()+(t.time?(+t.time.slice(0,2)*60+ +t.time.slice(3))*6e4:864e5-1)):null;
-const isOver=t=>!t.done&&t.date&&due(t)<new Date();
+const isOver=t=>!t.done&&t.date&&!t.time&&due(t)<new Date();
+const isPast=t=>!t.done&&t.date&&t.time&&due(t)<new Date();
 const remTxt=t=>t.rem&&t.rem.length?'🔔 提前'+t.rem.map(m=>m>=60?(m/60)+'小时':m+'分钟').join('、'):'';
 
 // ---- 中文自然语言解析 ----
@@ -127,8 +135,9 @@ window.parseCN=parse;
 let cur='today',selDay=today(),expandQ=null;
 function itemHTML(t,showDate){
   const meta=[showDate&&t.date?fmtD(t.date):'',t.time||'',remTxt(t)].filter(Boolean).join(' · ');
-  return `<div class="item ${t.done?'done':''}" data-id="${t.id}"><div class="bar" style="background:var(${QN[t.q][1]})"></div><div class="chk" data-act="done">${t.done?'✓':''}</div><div class="t" data-act="edit"><div>${esc(t.title)}</div>${meta?`<div class="meta ${isOver(t)?'overdue':''}">${isOver(t)?'已过期 · ':''}${meta}</div>`:''}</div></div>`}
-function render(){_render();if(RO){const f=document.createElement('div');f.className='foot';f.textContent='增改请在聊天里告诉日程提醒'+(UPD?' · 更新于 '+UPD:'');$('#view').appendChild(f)}}
+  const ps=isPast(t),ov=isOver(t);
+  return `<div class="item ${t.done?'done':''} ${ps?'past':''}" data-id="${t.id}"><div class="bar" style="background:var(${QN[t.q][1]})"></div><div class="chk" data-act="done">${t.done||ps?'✓':''}</div><div class="t" data-act="edit"><div>${esc(t.title)}</div>${meta||ps||ov?`<div class="meta ${ov?'overdue':ps?'pasttag':''}">${ov?'逾期 · ':ps?'已过 · ':''}${meta}</div>`:''}</div></div>`}
+function render(){_render();if(RO){const f=document.createElement('div');f.className='foot';f.textContent='点右上角「解锁编辑」可直接修改，也可在聊天里告诉日程提醒'+(UPD?' · 更新于 '+UPD:'');$('#view').appendChild(f)}}
 function _render(){
   const v=$('#view'),now=new Date(),td=today();
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===cur));
@@ -142,12 +151,12 @@ function _render(){
     let h='';
     if(nxt){const ms=due(nxt)-now,mi=Math.floor(ms/6e4),d=Math.floor(mi/1440),hr=Math.floor(mi%1440/60),m=mi%60;
       h+=`<div class="card next" data-id="${nxt.id}"><div class="sub">下一件事</div><div style="font-size:18px;font-weight:600">${esc(nxt.title)}</div><div>还有 ${d?d+' 天 ':''}${hr?hr+' 小时 ':''}${m} 分 · ${nxt.date===td?'':fmtD(nxt.date)+' '}${nxt.time}</div></div>`}
-    if(over.length)h+=`<div class="sec overdue">已过期 ${over.length}</div><div class="card">${over.map(t=>itemHTML(t,1)).join('')}<button class="btn ghost" data-act="movetoday">全部挪到今天</button></div>`;
+    if(over.length)h+=`<div class="sec overdue">逾期 ${over.length}</div><div class="card">${over.map(t=>itemHTML(t,1)).join('')}<button class="btn ghost" data-act="movetoday">全部挪到今天</button></div>`;
     const timed=list.filter(t=>t.time),un=list.filter(t=>!t.time);
     h+=`<div class="sec">时间线</div><div class="card"><div class="tl" id="tl">`;
     for(let i=6;i<=23;i++)h+=`<div class="hr"><span>${pad(i)}:00</span></div>`;
     timed.forEach(t=>{const mi=+t.time.slice(0,2)*60+ +t.time.slice(3);const top=Math.max(0,(mi-360)/60*44);
-      h+=`<div class="ev" data-id="${t.id}" data-act="edit" style="top:${top}px;height:40px;background:var(${QN[t.q][1]});${t.done?'opacity:.45;text-decoration:line-through':''}">${t.time} ${esc(t.title)}</div>`});
+      h+=`<div class="ev" data-id="${t.id}" data-act="edit" style="top:${top}px;height:40px;background:var(${isPast(t)?'--q4':QN[t.q][1]});${t.done?'opacity:.45;text-decoration:line-through':isPast(t)?'opacity:.6':''}">${isPast(t)?'✓ 已过 · ':''}${t.time} ${esc(t.title)}</div>`});
     const nm=now.getHours()*60+now.getMinutes();if(nm>=360)h+=`<div class="nowl" style="top:${(nm-360)/60*44}px"></div>`;
     h+=`</div>${timed.length?'':'<div class="empty">今天没有定时间的安排</div>'}</div>`;
     h+=`<div class="sec">未定时间</div><div class="card">${un.length?un.map(t=>itemHTML(t)).join(''):'<div class="empty">没有</div>'}</div>`;
@@ -201,8 +210,8 @@ function form(t){
   $('#f-q').onclick=e=>{const b=e.target.closest('button');if(!b)return;q=+b.dataset.q;document.querySelectorAll('#f-q button').forEach(x=>x.classList.toggle('on',x===b))};
   $('#f-ok').onclick=()=>{const title=(parsed&&(parsed.date||parsed.time))?parsed.title:nl.value.trim();if(!title)return nl.focus();
     const o={title,date:$('#f-date').value||null,time:$('#f-time').value||null,q,rem:$('#f-rem').value.split(/[,，\s]+/).map(Number).filter(n=>n>0),note:$('#f-note').value};
-    if(isNew)S.tasks.push({id:uid(),done:false,...o});else Object.assign(t,o);save();closeSheet();render()};
-  if(!isNew){$('#f-del').onclick=()=>{if(confirm('删除这条？')){S.tasks=S.tasks.filter(x=>x!==t);save();closeSheet();render()}};$('#f-cancel').onclick=closeSheet}
+    const id=isNew?uid():t.id;closeSheet();if(isNew)commit(d=>{d.tasks.push({id,done:false,...o})},'新增：'+o.title);else commit(d=>{const x=d.tasks.find(x=>x.id===id);if(x)Object.assign(x,o)},'修改：'+o.title)};
+  if(!isNew){$('#f-del').onclick=()=>{if(confirm('确定删除「'+t.title+'」？删除后不能恢复。')){const id=t.id;closeSheet();commit(d=>{d.tasks=d.tasks.filter(x=>x.id!==id)},'删除：'+t.title)}};$('#f-cancel').onclick=closeSheet}
 }
 $('#fab').onclick=()=>form();
 $('#nav').onclick=e=>{const b=e.target.closest('button');if(b){cur=b.dataset.v;render();scrollTo(0,0)}};
@@ -210,22 +219,22 @@ const byId=id=>S.tasks.find(t=>t.id===id);
 $('#view').addEventListener('click',e=>{
   if(dragJustEnded)return;
   const a=e.target.closest('[data-act]'),it=e.target.closest('[data-id]');const act=a&&a.dataset.act;
-  if(act==='done'&&it){const t=byId(it.dataset.id);t.done=!t.done;save();it.classList.toggle('done',t.done);setTimeout(render,250);return}
+  if(act==='done'&&it){const id=it.dataset.id,v=!byId(id).done;commit(d=>{const x=d.tasks.find(x=>x.id===id);if(x)x.done=v},(v?'完成：':'取消完成：')+byId(id).title);return}
   if(act==='edit'&&it)return form(byId(it.dataset.id));
   if(!act&&it&&it.classList.contains('next'))return form(byId(it.dataset.id));
-  if(act==='movetoday'){S.tasks.forEach(t=>{if(isOver(t)){t.date=today();t.time=null}});save();render()}
+  if(act==='movetoday'){const ids=S.tasks.filter(isOver).map(t=>t.id),td=today();commit(d=>{d.tasks.forEach(t=>{if(ids.includes(t.id)){t.date=td;t.time=null}})},'逾期挪到今天')}
   if(act==='more'){expandQ=+a.dataset.q;render()}
   if(act==='sel'){selDay=a.dataset.d;render()}
   if(act==='wk'){const d=pd(selDay);d.setDate(d.getDate()+ +a.dataset.n);selDay=ds(d);render()}
   if(act==='today'){selDay=today();render()}
   const g=e.target.closest('[data-gid]'),G=g&&S.goals.find(x=>x.id===g.dataset.gid);
-  if(act==='gadd'){const n=prompt('目标名称');if(n){S.goals.push({id:uid(),title:n,p:0});save();render()}}
-  if(act==='gedit'){const n=prompt('目标名称',G.title);if(n){G.title=n;save();render()}}
-  if(act==='gdel'&&confirm('删除目标？')){S.goals=S.goals.filter(x=>x!==G);save();render()}
+  if(act==='gadd'){const n=prompt('目标名称');if(n){const id=uid();commit(d=>{(d.goals=d.goals||[]).push({id,title:n,p:0})},'新目标')}}
+  if(act==='gedit'){const n=prompt('目标名称',G.title);if(n){const id=G.id;commit(d=>{const x=(d.goals||[]).find(x=>x.id===id);if(x)x.title=n},'目标改名')}}
+  if(act==='gdel'&&confirm('删除目标？')){const id=G.id;commit(d=>{d.goals=(d.goals||[]).filter(x=>x.id!==id)},'删除目标')}
   if(act==='exp'){const b=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});const u=URL.createObjectURL(b);const l=document.createElement('a');l.href=u;l.download='schedule-'+today()+'.json';l.click();URL.revokeObjectURL(u)}
   if(act==='imp'){const f=$('#file');f.onchange=()=>{const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!Array.isArray(d.tasks))throw 0;S={tasks:d.tasks,goals:d.goals||[]};save();render();alert('导入成功')}catch(_){alert('文件格式不对')}};r.readAsText(f.files[0])};f.click()}
 });
-$('#view').addEventListener('input',e=>{if(e.target.dataset.act==='gp'){const g=e.target.closest('[data-gid]'),G=S.goals.find(x=>x.id===g.dataset.gid);G.p=+e.target.value;save();g.querySelector('.prog>div').style.width=G.p+'%';g.querySelector('.row div:last-child').textContent=G.p+'%'}});
+$('#view').addEventListener('input',e=>{if(e.target.dataset.act==='gp'){const g=e.target.closest('[data-gid]'),G=S.goals.find(x=>x.id===g.dataset.gid);G.p=+e.target.value;clearTimeout(window.__gpT);const id=G.id,p=G.p;window.__gpT=setTimeout(()=>commit(d=>{const x=(d.goals||[]).find(x=>x.id===id);if(x)x.p=p},'目标进度'),800);g.querySelector('.prog>div').style.width=G.p+'%';g.querySelector('.row div:last-child').textContent=G.p+'%'}});
 // ---- 向左滑删除 / 向右滑改到明天；四象限内长按拖动 ----
 let sx,sy,sItem,lp,drag=null,dragJustEnded=false;
 $('#view').addEventListener('pointerdown',e=>{const it=e.target.closest('.item');if(!it)return;sx=e.clientX;sy=e.clientY;sItem=it;
@@ -233,22 +242,95 @@ $('#view').addEventListener('pointerdown',e=>{const it=e.target.closest('.item')
 function mv(e){drag.el.style.left=e.clientX+8+'px';drag.el.style.top=e.clientY+8+'px';document.querySelectorAll('.q').forEach(q=>q.classList.remove('over'));const q=document.elementFromPoint(e.clientX,e.clientY);const qq=q&&q.closest('.q');if(qq)qq.classList.add('over')}
 addEventListener('pointermove',e=>{if(drag){e.preventDefault();return mv(e)}if(!sItem)return;const dx=e.clientX-sx;if(Math.abs(e.clientY-sy)>10||Math.abs(dx)>10)clearTimeout(lp);if(Math.abs(dx)>10&&Math.abs(dx)>Math.abs(e.clientY-sy))sItem.style.transform=`translateX(${dx}px)`},{passive:false});
 addEventListener('pointerup',e=>{clearTimeout(lp);
-  if(drag){const q=document.elementFromPoint(e.clientX,e.clientY);const qq=q&&q.closest('.q');drag.el.remove();if(qq){byId(drag.id).q=+qq.dataset.q;save()}drag=null;dragJustEnded=true;setTimeout(()=>dragJustEnded=false,50);render();sItem=null;return}
+  if(drag){const q=document.elementFromPoint(e.clientX,e.clientY);const qq=q&&q.closest('.q');drag.el.remove();if(qq){const id=drag.id,q=+qq.dataset.q;if(byId(id).q!==q)commit(d=>{const x=d.tasks.find(x=>x.id===id);if(x)x.q=q},'换象限')}drag=null;dragJustEnded=true;setTimeout(()=>dragJustEnded=false,50);render();sItem=null;return}
   if(!sItem)return;const dx=e.clientX-sx,it=sItem;sItem=null;it.style.transform='';
-  if(dx<-90){const t=byId(it.dataset.id);if(confirm('删除「'+t.title+'」？')){S.tasks=S.tasks.filter(x=>x!==t);save()}render();dragJustEnded=true;setTimeout(()=>dragJustEnded=false,50)}
-  else if(dx>90){const t=byId(it.dataset.id);const d=new Date();d.setDate(d.getDate()+1);t.date=ds(d);save();render();dragJustEnded=true;setTimeout(()=>dragJustEnded=false,50)}});
+  if(dx<-90){const t=byId(it.dataset.id);if(confirm('确定删除「'+t.title+'」？删除后不能恢复。')){const id=t.id;commit(d=>{d.tasks=d.tasks.filter(x=>x.id!==id)},'删除：'+t.title)}else render();dragJustEnded=true;setTimeout(()=>dragJustEnded=false,50)}
+  else if(dx>90){const id=it.dataset.id;const nd=new Date();nd.setDate(nd.getDate()+1);const k=ds(nd);commit(d=>{const x=d.tasks.find(x=>x.id===id);if(x)x.date=k},'改到明天');dragJustEnded=true;setTimeout(()=>dragJustEnded=false,50)}});
 document.addEventListener('contextmenu',e=>{if(cur==='quad'&&e.target.closest('.item'))e.preventDefault()});
 // ---- 只读看板：以服务器 data.json 为准 ----
 function bjTime(iso){const d=new Date(iso);if(isNaN(d))return null;const b=new Date(d.getTime()+(d.getTimezoneOffset()+480)*6e4);return (b.getMonth()+1)+'/'+b.getDate()+' '+pad(b.getHours())+':'+pad(b.getMinutes())+' 北京时间'}
-async function pull(){try{const r=await fetch('data.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)throw r.status;const d=await r.json();if(!Array.isArray(d.tasks))throw 0;
-  S={tasks:d.tasks,goals:d.goals||[]};RO=true;UPD=bjTime(d.updatedAt);document.body.classList.add('ro');window.__src='server';if(!$('#sheet').classList.contains('open'))render()}catch(e){window.__src=window.__src||'local'}}
-function detail(t){openSheet(`<div style="display:flex;gap:8px;align-items:center"><span style="width:10px;height:10px;border-radius:3px;background:var(${QN[t.q][1]})"></span><b>${QN[t.q][0]}</b></div><h3 style="margin:8px 0">${esc(t.title)}</h3><div class="sub">${t.date?fmtD(t.date):'无日期'} ${t.time||''} ${remTxt(t)}</div>${t.note?`<div style="margin-top:10px;white-space:pre-wrap">${esc(t.note)}</div>`:''}<div class="sub" style="margin-top:12px">要修改请在聊天里告诉日程提醒</div><button class="btn ghost" onclick="closeSheet()">关闭</button>`)}
+async function pull(){if(SAVING)return;try{let d;
+  if(TOKEN){try{d=(await ghFile()).data}catch(e){if(e.auth)return lockOut('编辑钥匙已失效，请重新解锁');}}
+  if(!d){const r=await fetch('data.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)throw r.status;d=await r.json()}
+  if(!Array.isArray(d.tasks))throw 0;
+  if((d.rev||0)<(S.rev||0))return; // Pages 还没部署到最新，先用本地
+  if(SAVING)return;setData(d);window.__src='server';if(!$('#sheet').classList.contains('open'))render()}catch(e){window.__src=window.__src||'local'}}
+function setData(d){S={rev:d.rev||0,updatedAt:d.updatedAt,tasks:d.tasks,goals:d.goals||[]};UPD=bjTime(d.updatedAt);save()}
+function detail(t){openSheet(`<div style="display:flex;gap:8px;align-items:center"><span style="width:10px;height:10px;border-radius:3px;background:var(${QN[t.q][1]})"></span><b>${QN[t.q][0]}</b></div><h3 style="margin:8px 0">${esc(t.title)}</h3><div class="sub">${t.date?fmtD(t.date):'无日期'} ${t.time||''} ${remTxt(t)}</div>${t.note?`<div style="margin-top:10px;white-space:pre-wrap">${esc(t.note)}</div>`:''}<button class="btn" onclick="askUnlock()">🔒 解锁编辑</button><button class="btn ghost" onclick="closeSheet()">关闭</button>`)}
 const roBlock=e=>{if(!RO||!e.target.closest||!e.target.closest('#view'))return;const it=e.target.closest&&e.target.closest('#view .item');const a=e.target.closest&&e.target.closest('[data-act]');const act=a&&a.dataset.act;
   if(e.type==='click'){if(['more','sel','wk','today'].includes(act))return;e.stopPropagation();e.preventDefault();if(it){const t=S.tasks.find(x=>x.id===it.dataset.id);t&&detail(t)}}
   else if(it){e.stopPropagation()}};
 addEventListener('click',roBlock,true);addEventListener('pointerdown',roBlock,true);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)pull()});addEventListener('pageshow',pull);
 let pty=null;addEventListener('touchstart',e=>{pty=scrollY<=0?e.touches[0].clientY:null},{passive:true});addEventListener('touchend',e=>{if(pty!==null&&e.changedTouches[0].clientY-pty>80)pull();pty=null},{passive:true});
-pull();
+// ---- 编辑：密码解锁 + 写回 GitHub ----
+const REPO='zhenjisuozao/cal',BR='main',SLUG='653744dd8e57200a0666cdc5',TKEY='xd-edit-token',API='https://api.github.com/repos/'+REPO;
+let TOKEN=null,SAVING=false,QUEUE=Promise.resolve();
+const b64d=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+const utf8b64=s=>{const b=new TextEncoder().encode(s);let r='';for(let i=0;i<b.length;i+=0x8000)r+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000));return btoa(r)};
+function applyMode(){RO=!TOKEN;document.body.classList.toggle('ro',RO);const b=$('#lockbtn');b.textContent=RO?'🔒 解锁编辑':'🔓 退出编辑';b.classList.toggle('on',!RO)}
+function status(t,c){const e=$('#savest');e.textContent=t;e.className=c||'';if(c==='ok')setTimeout(()=>{if(e.textContent===t){e.textContent='';e.className=''}},2500)}
+async function unlockWith(pw){const E=await (await fetch('edit.json?t='+Date.now(),{cache:'no-store'})).json();
+  const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveKey']);
+  const k=await crypto.subtle.deriveKey({name:'PBKDF2',hash:'SHA-256',salt:b64d(E.salt),iterations:E.iter},km,{name:'AES-GCM',length:256},false,['decrypt']);
+  const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64d(E.iv)},k,b64d(E.ct));return new TextDecoder().decode(pt)}
+function askUnlock(){openSheet(`<h3 style="margin:0 0 6px">解锁编辑</h3><div class="sub">输入修改密码。这台设备会记住，以后不用再输。</div>
+  <input id="pw" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="修改密码">
+  <div class="pwerr" id="pwerr"></div><button class="btn" id="pwok">解锁</button><button class="btn ghost" onclick="closeSheet()">取消</button>`);
+  setTimeout(()=>$('#pw').focus(),250);
+  const go=async()=>{const pw=$('#pw').value.trim().toLowerCase();if(!pw){$('#pwerr').textContent='请输入密码';return}
+    $('#pwok').disabled=true;$('#pwok').textContent='验证中…';$('#pwerr').textContent='';
+    try{const tok=await unlockWith(pw);TOKEN=tok;localStorage.setItem(TKEY,tok);applyMode();closeSheet();status('已解锁，可以直接修改','ok');pull();render()}
+    catch(e){$('#pwerr').textContent=e&&e.name==='OperationError'?'密码不对，请再试一次':'解锁失败，请检查网络后重试';$('#pwok').disabled=false;$('#pwok').textContent='解锁'}};
+  $('#pwok').onclick=go;$('#pw').onkeydown=e=>{if(e.key==='Enter')go()}}
+function lockOut(msg){TOKEN=null;localStorage.removeItem(TKEY);applyMode();render();if(msg)status(msg,'err')}
+$('#lockbtn').onclick=()=>{if(RO)askUnlock();else if(confirm('退出编辑？这台设备会忘掉密码，之后只能查看。'))lockOut()};
+async function gh(path,opt={}){const r=await fetch(path.startsWith('http')?path:API+path,{...opt,cache:'no-store',headers:{'Authorization':'Bearer '+TOKEN,'Accept':'application/vnd.github+json',...(opt.body?{'Content-Type':'application/json'}:{})}});
+  if(r.status===401||r.status===403&&!(await r.clone().text()).includes('rate')){const e=new Error('auth');e.auth=true;throw e}
+  if(!r.ok){const e=new Error('http '+r.status);e.status=r.status;throw e}return r.json()}
+async function ghFile(ref){const j=await gh(`/contents/${SLUG}/data.json?ref=${ref||BR}&t=${Date.now()}`);
+  return{data:JSON.parse(new TextDecoder().decode(b64d(j.content.replace(/\s/g,'')))),sha:j.sha}}
+// 与 make_ics.py 一致的 ICS 生成
+const icsEsc=s=>s.replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n');
+function fold(line){let b=new TextEncoder().encode(line);const out=[];while(b.length>75){let i=out.length?74:75;while((b[i]&0xC0)===0x80)i--;out.push(b.slice(0,i));b=b.slice(i)}out.push(b);return out.map(x=>new TextDecoder().decode(x)).join('\r\n ')}
+async function sha1hex(s){return [...new Uint8Array(await crypto.subtle.digest('SHA-1',new TextEncoder().encode(s)))].map(x=>x.toString(16).padStart(2,'0')).join('')}
+const ymd=s=>s.replace(/-/g,'');
+function nextDay(s){const d=pd(s);d.setDate(d.getDate()+1);return ds(d)}
+function addHour(date,time){const h=+time.slice(0,2)+1;return h>=24?[nextDay(date),pad(h-24)+time.slice(3)]:[date,pad(h)+time.slice(3)]}
+async function buildIcs(tasks){const ev=[];for(const t of tasks){if(!t.date)continue;let loc='';const lm=(t.note||'').match(/地点[:：]\s*([^；;]+)/);if(lm)loc=lm[1].replace(/\(.*?\)|（.*?）/g,'').trim();
+    ev.push({...t,quad:QN[t.q]?QN[t.q][0]:'',loc,uid:(await sha1hex(t.title)).slice(0,16)+'@xiaodun-schedule',key:t.date+(t.time||'00:00')})}
+  ev.sort((a,b)=>a.key<b.key?-1:a.key>b.key?1:0);
+  const now=new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d+Z$/,'Z');
+  const hex=s=>[...new TextEncoder().encode(s)].map(x=>x.toString(16).padStart(2,'0')).join('').slice(0,16);
+  const cal=(E,name)=>{const L=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Xiaodun//Schedule Reminder//ZH','CALSCALE:GREGORIAN','METHOD:PUBLISH','X-WR-CALNAME:'+icsEsc(name),'X-WR-TIMEZONE:Asia/Shanghai','REFRESH-INTERVAL;VALUE=DURATION:PT15M','X-PUBLISHED-TTL:PT15M','BEGIN:VTIMEZONE','TZID:Asia/Shanghai','BEGIN:STANDARD','DTSTART:19700101T000000','TZOFFSETFROM:+0800','TZOFFSETTO:+0800','TZNAME:CST','END:STANDARD','END:VTIMEZONE'];
+    for(const e of E){const desc='象限：'+e.quad+(e.note?'\n备注：'+e.note:'');L.push('BEGIN:VEVENT','UID:'+e.uid,'DTSTAMP:'+now);
+      if(e.time){const[ed,et]=addHour(e.date,e.time);L.push(`DTSTART;TZID=Asia/Shanghai:${ymd(e.date)}T${e.time.replace(':','')}00`,`DTEND;TZID=Asia/Shanghai:${ymd(ed)}T${et.replace(':','')}00`)}
+      else L.push('DTSTART;VALUE=DATE:'+ymd(e.date),'DTEND;VALUE=DATE:'+ymd(nextDay(e.date)));
+      L.push('SUMMARY:'+icsEsc((e.done?'✅ ':'')+e.title),'DESCRIPTION:'+icsEsc(desc));if(e.loc)L.push('LOCATION:'+icsEsc(e.loc));if(e.quad)L.push('CATEGORIES:'+icsEsc(e.quad));
+      if(!e.done&&e.time)L.push('BEGIN:VALARM','ACTION:DISPLAY','DESCRIPTION:'+icsEsc(e.title),'TRIGGER:-PT60M','END:VALARM');L.push('END:VEVENT')}
+    if(!E.length)L.push('BEGIN:VEVENT',`UID:placeholder-${hex(name)}@xd`,'DTSTAMP:'+now,'DTSTART;VALUE=DATE:20000101','DTEND;VALUE=DATE:20000102','SUMMARY:（占位）','TRANSP:TRANSPARENT','END:VEVENT');
+    L.push('END:VCALENDAR');return L.map(fold).join('\r\n')+'\r\n'};
+  const F={'all.ics':cal(ev,'日程提醒')};for(const q of [1,2,3,4])F[`q${q}.ics`]=cal(ev.filter(e=>e.q===q),'日程提醒·'+QN[q][0]);return F}
+window.buildIcs=buildIcs;
+function bjISO(){const d=new Date(Date.now()+8*36e5);return d.toISOString().slice(0,19)+'+08:00'}
+function commit(op,msg){if(!TOKEN){askUnlock();return}
+  const loc=JSON.parse(JSON.stringify(S));op(loc);S.tasks=loc.tasks;S.goals=loc.goals;render(); // 本地立即更新
+  QUEUE=QUEUE.then(()=>push(op,msg));return QUEUE}
+async function push(op,msg){SAVING=true;status('保存中…');
+  try{for(let n=0;n<5;n++){
+      const ref=await gh(`/git/ref/heads/${BR}?t=${Date.now()}`),head=ref.object.sha;
+      const {data:d}=await ghFile(head);d.tasks=d.tasks||[];d.goals=d.goals||[];op(d);
+      d.rev=(d.rev||0)+1;d.source='web';d.updatedAt=bjISO();
+      d.tasks.sort((a,b)=>((a.date||'9999')+(a.time||'')).localeCompare((b.date||'9999')+(b.time||'')));
+      const files={'data.json':JSON.stringify({rev:d.rev,source:d.source,updatedAt:d.updatedAt,tasks:d.tasks,goals:d.goals},null,1),...await buildIcs(d.tasks)};
+      const hc=await gh(`/git/commits/${head}`);
+      const tree=await gh('/git/trees',{method:'POST',body:JSON.stringify({base_tree:hc.tree.sha,tree:Object.entries(files).map(([k,v])=>({path:SLUG+'/'+k,mode:'100644',type:'blob',content:v}))})});
+      const c=await gh('/git/commits',{method:'POST',body:JSON.stringify({message:'网页修改：'+(msg||'')+' (rev '+d.rev+')',tree:tree.sha,parents:[head]})});
+      try{await gh(`/git/refs/heads/${BR}`,{method:'PATCH',body:JSON.stringify({sha:c.sha,force:false})})}
+      catch(e){if(e.status===422||e.status===409){await new Promise(r=>setTimeout(r,600*(n+1)));continue}throw e}
+      setData(d);SAVING=false;status('已保存','ok');if(!$('#sheet').classList.contains('open'))render();window.__lastSave={rev:d.rev,commit:c.sha};return}
+    throw new Error('conflict')}
+  catch(e){SAVING=false;if(e.auth){lockOut('保存失败：编辑钥匙已失效，请重新解锁');}else status(e.message==='conflict'?'保存失败：多处同时修改，请刷新后重试':'保存失败：网络或 GitHub 出错，请稍后重试','err');window.__lastSave={err:String(e)};pull()}}
+TOKEN=localStorage.getItem(TKEY);applyMode();pull();
 render();setInterval(()=>{pull()},300000);setInterval(()=>{if(!$('#sheet').classList.contains('open'))render()},60000);
 </script></body></html>
