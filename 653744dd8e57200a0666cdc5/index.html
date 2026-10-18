@@ -71,16 +71,16 @@ input,textarea,select{width:100%;font:inherit;padding:10px;border:1px solid var(
 .mh .tb{border:1px solid var(--line);background:var(--card);color:var(--pri);border-radius:999px;padding:4px 12px;font-size:13px}
 .mwd{display:grid;grid-template-columns:repeat(7,1fr);font-size:11px;color:var(--sub);text-align:center;padding-bottom:4px;border-bottom:1px solid var(--line)}
 .mg{display:grid;grid-template-columns:repeat(7,1fr)}
-.mc{min-height:84px;border-bottom:1px solid var(--line);padding:4px 2px 3px;overflow:hidden;cursor:pointer;min-width:0}
+.mc{min-height:92px;border-bottom:1px solid var(--line);padding:4px 1px 3px;overflow:hidden;cursor:pointer;min-width:0}
 .mc.out{opacity:.35}.mc.sel{background:rgba(37,99,235,.08);border-radius:6px}
-.mc .dn{display:flex;flex-direction:column;align-items:center;line-height:1.1;margin-bottom:1px}
+.mc .dn{display:flex;flex-direction:column;align-items:center;line-height:1.05;margin-bottom:2px}
 .mc .dn b{font-size:14px;font-weight:500;width:24px;height:24px;display:grid;place-items:center;border-radius:50%}
 .mc.td .dn b{background:var(--now);color:#fff;font-weight:700}
 .mc .dn s{text-decoration:none;font-size:9px;color:var(--sub);white-space:nowrap;min-height:11px}.mc .dn s.hol{color:var(--q1);font-weight:600}.mc .dn s.wrk{color:var(--pri);font-weight:600}
 .mc.we .dn b{color:var(--sub)}.mc.td.we .dn b{color:#fff}
-.ch{display:flex;align-items:center;gap:3px;font-size:11px;line-height:15px;margin-top:2px;white-space:nowrap;overflow:hidden;border-radius:3px;padding:1px 1px 1px 0;max-width:100%}
-.ch i{flex:none;width:4px;height:12px;border-radius:2px}.ch span{min-width:0;overflow:hidden;text-overflow:ellipsis}
-.ch.fade{opacity:.4}.mmore{font-size:10px;color:var(--sub);padding-left:5px;line-height:14px;margin-top:1px}
+.ch{display:flex;align-items:center;gap:3px;font-size:12px;line-height:16px;margin-top:2px;white-space:nowrap;overflow:hidden;border-radius:4px;padding:2px 2px 2px 0;max-width:100%;background:rgba(0,0,0,.03)}
+.ch i{flex:none;width:5px;align-self:stretch;min-height:14px;border-radius:2px}.ch span{min-width:0;overflow:hidden;text-overflow:ellipsis;font-weight:500;color:var(--tx)}
+.ch.fade{opacity:.4}.mmore{font-size:11px;color:var(--sub);padding-left:5px;line-height:15px;margin-top:2px;font-weight:500}
 </style></head><body>
 <header><div class="hrow"><h1 id="ttl">今天</h1><button class="lockbtn" id="lockbtn">🔒 解锁编辑</button></div><div class="sub" id="subt"></div><div id="savest"></div></header>
 <main id="view"></main>
@@ -414,7 +414,7 @@ function monthH(){const T=S.tasks,td=today();if(!MV){const d=pd(selDay);MV=[d.ge
   let h=`<div class="card" id="mcal" style="padding:10px 6px 4px"><div class="mh"><button class="ar" data-act="mon" data-n="-1" aria-label="上个月">‹</button><b>${y}年${mo+1}月</b><button class="tb" data-act="mtoday">今天</button><button class="ar" data-act="mon" data-n="1" aria-label="下个月">›</button></div><div class="mwd">${'一二三四五六日'.split('').map(c=>'<div>'+c+'</div>').join('')}</div><div class="mg">`;
   for(let i=0;i<n;i++){const d=new Date(st);d.setDate(st.getDate()+i);const k=ds(d),L=T.filter(t=>t.date===k).sort((a,b)=>(a.time||'99').localeCompare(b.time||'99'));const [mk,mkc]=dayMark(k);const MAX=2,sh=L.slice(0,MAX);
     h+=`<div class="mc ${d.getMonth()!==mo?'out':''} ${k===td?'td':''} ${k===selDay?'sel':''} ${d.getDay()%6===0?'we':''}" data-act="msel" data-d="${k}"><div class="dn"><b>${d.getDate()}</b><s class="${mkc}">${mk}</s></div>`+
-      sh.map(t=>{const tip=t.title.replace(/\s*@.*/,'').replace(/（截止）/g,'').trim();return `<div class="ch ${t.done||isPast(t)?'fade':''}"><i style="background:var(${QN[EQ(t)][1]})"></i><span>${esc(tip)}</span></div>`}).join('')+(L.length>MAX?`<div class="mmore">+${L.length-MAX}</div>`:'')+'</div>'}
+      sh.map(t=>{let tip=t.title.replace(/\s*@.*/,'').replace(/（截止）/g,'').trim();if(t.time)tip=t.time.slice(0,5)+' '+tip;return `<div class="ch ${t.done||isPast(t)?'fade':''}"><i style="background:var(${QN[EQ(t)][1]})"></i><span>${esc(tip)}</span></div>`}).join('')+(L.length>MAX?`<div class="mmore">+${L.length-MAX}</div>`:'')+'</div>'}
   h+='</div></div>';
   const L=T.filter(t=>t.date===selDay).sort((a,b)=>(a.time||'99').localeCompare(b.time||'99'));
   const [sm]=dayMark(selDay);
