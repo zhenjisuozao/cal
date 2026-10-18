@@ -414,7 +414,7 @@ function monthH(){const T=S.tasks,td=today();if(!MV){const d=pd(selDay);MV=[d.ge
   let h=`<div class="card" id="mcal" style="padding:10px 6px 4px"><div class="mh"><button class="ar" data-act="mon" data-n="-1" aria-label="上个月">‹</button><b>${y}年${mo+1}月</b><button class="tb" data-act="mtoday">今天</button><button class="ar" data-act="mon" data-n="1" aria-label="下个月">›</button></div><div class="mwd">${'一二三四五六日'.split('').map(c=>'<div>'+c+'</div>').join('')}</div><div class="mg">`;
   for(let i=0;i<n;i++){const d=new Date(st);d.setDate(st.getDate()+i);const k=ds(d),L=T.filter(t=>t.date===k).sort((a,b)=>(a.time||'99').localeCompare(b.time||'99'));const [mk,mkc]=dayMark(k);const MAX=2,sh=L.slice(0,MAX);
     h+=`<div class="mc ${d.getMonth()!==mo?'out':''} ${k===td?'td':''} ${k===selDay?'sel':''} ${d.getDay()%6===0?'we':''}" data-act="msel" data-d="${k}"><div class="dn"><b>${d.getDate()}</b><s class="${mkc}">${mk}</s></div>`+
-      sh.map(t=>{let tip=t.title.replace(/\s*@.*/,'').replace(/（截止）/g,'').trim();if(t.time)tip=t.time.slice(0,5)+' '+tip;return `<div class="ch ${t.done||isPast(t)?'fade':''}"><i style="background:var(${QN[EQ(t)][1]})"></i><span>${esc(tip)}</span></div>`}).join('')+(L.length>MAX?`<div class="mmore">+${L.length-MAX}</div>`:'')+'</div>'}
+      sh.map(t=>{const tip=t.title.replace(/\s*@.*/,'').replace(/（截止）/g,'').trim();return `<div class="ch ${t.done||isPast(t)?'fade':''}"><i style="background:var(${QN[EQ(t)][1]})"></i><span>${esc(tip)}</span></div>`}).join('')+(L.length>MAX?`<div class="mmore">+${L.length-MAX}</div>`:'')+'</div>'}
   h+='</div></div>';
   const L=T.filter(t=>t.date===selDay).sort((a,b)=>(a.time||'99').localeCompare(b.time||'99'));
   const [sm]=dayMark(selDay);
