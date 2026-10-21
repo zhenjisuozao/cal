@@ -1,7 +1,7 @@
 {
- "rev": 40,
+ "rev": 41,
  "source": "md",
- "updatedAt": "2026-10-21T15:19:07+08:00",
+ "updatedAt": "2026-10-21T19:58:30+08:00",
  "tasks": [
   {
    "id": "194c5cb73d0de0a2",
@@ -54,10 +54,8 @@
    "time": "23:00",
    "q": 4,
    "note": "iPhone Duo 10/23 发售；由网页改到 10/19 10:00 后再改到今晚 23:00",
-   "done": false,
-   "rem": [
-    60
-   ]
+   "done": true,
+   "rem": []
   },
   {
    "id": "e6eeecbbe34c6f17",
@@ -113,6 +111,19 @@
    "done": false,
    "rem": [
     0
+   ]
+  },
+  {
+   "id": "8c9c29b6c088d69b",
+   "title": "Amelia 家长会：跟 Mark Tudor（Prek 2 班主任）@SIS 蛇口国际学校",
+   "date": "2026-10-26",
+   "time": "15:00",
+   "q": 2,
+   "note": "原定周五改期，Mark 10/21 已回信确认；时长30分",
+   "done": false,
+   "rem": [
+    1440,
+    60
    ]
   },
   {
