@@ -1,7 +1,7 @@
 {
- "rev": 123,
+ "rev": 124,
  "source": "md",
- "updatedAt": "2026-11-18T08:04:55+08:00",
+ "updatedAt": "2026-11-18T21:45:26+08:00",
  "tasks": [
   {
    "id": "194c5cb73d0de0a2",
@@ -325,6 +325,18 @@
    "time": "21:00",
    "q": 2,
    "note": "工作；10/29 15:47 Grok Bot 转交他要求；时长15分",
+   "done": false,
+   "rem": [
+    0
+   ]
+  },
+  {
+   "id": "7a30ab279575a2ae",
+   "title": "买手工棉花外卖",
+   "date": "2026-11-19",
+   "time": "09:30",
+   "q": 3,
+   "note": "Family；11/18 21:45 Grok Bot 转交他要求；时长15分；Google 日历事件 id：hufgh38qvladaf1hpj682jik98；提醒事项待手机连上补写 Family 清单",
    "done": false,
    "rem": [
     0
